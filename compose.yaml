@@ -1,0 +1,59 @@
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: expensehub
+      POSTGRES_USER: expensehub_user
+      POSTGRES_PASSWORD: 1089381819
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: django-insecure-k=+o9a8rdm09&!@^&p9wxhhppowkd3&pt9oji3^goio4e_2cwa
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      POSTGRES_DB: expensehub
+      POSTGRES_USER: expensehub_user
+      POSTGRES_PASSWORD: 1089381819
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: python manage.py runserver 0.0.0.0:8000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
